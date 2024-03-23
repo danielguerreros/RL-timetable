@@ -63,16 +63,16 @@ class Station:
 
         self.all_passenger_info_dataframe =  pd.DataFrame(pd.read_csv(all_passenger_info_path))
 
-        self.all_station_all_minute_passenger = []  # All stations, passengers boarding every minute ([[all_passenger_info_dataframe[all_passenger_info_dataframe["Get_in_station"]==1]],[all_passenger_info_dataframe[all_passenger_info_dataframe["Get_in_station"]==2]],[],[],])
+        self.all_station_all_minute_passenger = []  # All stations, passengers boarding every minute ([[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==1]],[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==2]],[],[],])
 
         for i in range(self.station_number): # 所有站点，每分钟上车乘客
-            self.all_station_all_minute_passenger.append(self.all_passenger_info_dataframe[self.all_passenger_info_dataframe["Get_in_station"]==i])#每站，所有分钟的
+            self.all_station_all_minute_passenger.append(self.all_passenger_info_dataframe[self.all_passenger_info_dataframe["Boarding station"]==i])#每站，所有分钟的
         for i in range(self.station_number): #第一分钟，所有站点的乘客
-            self.init_frist_minute_passenger.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["arrical_station_time"]<=first_minute_th])
+            self.init_frist_minute_passenger.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"]<=first_minute_th])
 
 
         for i in range(self.station_number): #下一分钟，即将到达车站的乘客
-            self.next_minute_passenger.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["arrical_station_time"] == (first_minute_th+1)])
+            self.next_minute_passenger.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"] == (first_minute_th+1)])
         self.right_minute_passenger =  self.init_frist_minute_passenger
 
     def reset(self):
@@ -84,14 +84,14 @@ class Station:
 
         self.all_passenger_info_dataframe = pd.DataFrame(pd.read_csv(self.all_passenger_info_path))
 
-        self.all_station_all_minute_passenger = []  # 所有站点，每分钟上车乘客([[all_passenger_info_dataframe[all_passenger_info_dataframe["Get_in_station"]==1]],[all_passenger_info_dataframe[all_passenger_info_dataframe["Get_in_station"]==2]],[],[],])
+        self.all_station_all_minute_passenger = []  # 所有站点，每分钟上车乘客([[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==1]],[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==2]],[],[],])
 
         for i in range(self.station_number):  # 所有站点，每分钟上车乘客
-            self.all_station_all_minute_passenger.append(self.all_passenger_info_dataframe[self.all_passenger_info_dataframe["Get_in_station"] == i])  # 每站，所有分钟的
+            self.all_station_all_minute_passenger.append(self.all_passenger_info_dataframe[self.all_passenger_info_dataframe["Boarding station"] == i])  # 每站，所有分钟的
         for i in range(self.station_number):  # 第一分钟，所有站点的乘客
-            self.init_frist_minute_passenger.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["arrical_station_time"] <= first_minute_th])
+            self.init_frist_minute_passenger.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"] <= first_minute_th])
         for i in range(self.station_number):  # 下一分钟，即将到达车站的乘客
-            self.next_minute_passenger.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["arrical_station_time"] == (first_minute_th + 1)])
+            self.next_minute_passenger.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"] == (first_minute_th + 1)])
         self.right_minute_passenger = self.init_frist_minute_passenger
 
     def forward_one_step(self):
@@ -101,13 +101,13 @@ class Station:
         #print(right_minute_th, "每车人数", [len(k) for k in self.right_minute_passenger])
         for i in range(self.station_number):  # 下一分钟，即将到达车站的乘客
             self.next_minute_passenger.append(self.all_station_all_minute_passenger[i][
-                                                  self.all_station_all_minute_passenger[i]["arrical_station_time"] == (
+                                                  self.all_station_all_minute_passenger[i]["Arrival time"] == (
                                                               right_minute_th + 2)])
 
 
     def Estimated_psger_procs(self,station_no,time_start,time_finish):
-        psger_procs1=self.all_station_all_minute_passenger[station_no][self.all_station_all_minute_passenger[station_no]["arrical_station_time"]>time_start]
-        psger_procs2 = psger_procs1[psger_procs1["arrical_station_time"]<=time_finish]
+        psger_procs1=self.all_station_all_minute_passenger[station_no][self.all_station_all_minute_passenger[station_no]["Arrival time"]>time_start]
+        psger_procs2 = psger_procs1[psger_procs1["Arrival time"]<=time_finish]
         return psger_procs2
 
 
@@ -121,7 +121,7 @@ class Bus:
 
         self.pn_on_max = pn_on_max #最大人数
 
-        self.pn_on =pd.DataFrame(columns=["No_num", "Get_in_time_th","Get_in_station","Get_off_station","arrical_station_time"])   #车上人员
+        self.pn_on =pd.DataFrame(columns=["No_num", "Get_in_time_th","Boarding station","Get_off_station","Arrival time"])   #车上人员
 
         self.pn_on_num = 0 #车上人数
 
@@ -137,7 +137,7 @@ class Bus:
 
         self.pass_minute = 0
 
-        self.Passenger_on_board_leaving_station = pd.DataFrame(columns=["No_num", "Get_in_time_th","Get_in_station","Get_off_station","arrical_station_time"])
+        self.Passenger_on_board_leaving_station = pd.DataFrame(columns=["No_num", "Get_in_time_th","Boarding station","Get_off_station","Arrival time"])
 
         self.arrv_mark = 0 #到达终点站
 
@@ -154,12 +154,12 @@ class Bus:
 
         self.To_be_process_all_station = []
         for i in range(0, station_number):
-            self.To_be_process_all_station.append(pd.DataFrame(columns=["No_num", "Get_in_time_th","Get_in_station","Get_off_station","arrical_station_time"]))
+            self.To_be_process_all_station.append(pd.DataFrame(columns=["No_num", "Get_in_time_th","Boarding station","Get_off_station","Arrival time"]))
 
         self.Left_after_pass_the_station = []
         for i in range(0, station_number):
             self.Left_after_pass_the_station.append(pd.DataFrame(
-                columns=["No_num", "Get_in_time_th", "Get_in_station", "Get_off_station", "arrical_station_time"]))
+                columns=["No_num", "Get_in_time_th", "Boarding station", "Get_off_station", "Arrival time"]))
 
     def forward_one_step(self):
         self.there_label = 0
@@ -201,7 +201,7 @@ class Bus:
                 #乘客下车
 
                 self.pn_on = self.pn_on.append(self.pn_on[self.pn_on["Get_off_station"]==i])
-                self.pn_on = self.pn_on.drop_duplicates(subset=["No_num", "Get_in_time_th","Get_in_station","Get_off_station"], keep=False)
+                self.pn_on = self.pn_on.drop_duplicates(subset=["No_num", "Get_in_time_th","Boarding station","Get_off_station"], keep=False)
 
 
                 if len(station.right_minute_passenger[i])+len(self.pn_on)<=self.pn_on_max:
@@ -209,7 +209,7 @@ class Bus:
                     self.pn_on=pd.concat([self.pn_on,station.right_minute_passenger[i]])
                     All_cap_out = All_cap_out + self.pn_on_max
                     All_passenger_wait_time =All_passenger_wait_time + right_minute_th*len(station.right_minute_passenger[i])-np.sum(station.right_minute_passenger[i].iloc[:,4])
-                    station.right_minute_passenger[i] = pd.DataFrame(columns=["No_num", "Get_in_time_th","Get_in_station","Get_off_station","arrical_station_time"])
+                    station.right_minute_passenger[i] = pd.DataFrame(columns=["No_num", "Get_in_time_th","Boarding station","Get_off_station","Arrival time"])
                     All_cap_uesd = All_cap_uesd + len(self.pn_on)
                 else:
 
@@ -264,12 +264,12 @@ class BUS_LINE_SYSTEM:
 
 
                 self.bus_online[0].To_be_process_all_station[i] = pd.concat([self.station.right_minute_passenger[i],self.station.Estimated_psger_procs(i, right_minute_th, self.bus_online[0].Estimated_arrival_time[i])])
-                self.bus_online[0].pn_on = self.bus_online[0].pn_on.append(self.bus_online[0].pn_on[self.bus_online[0].pn_on["Get_off_station"] == i])
-                self.bus_online[0].pn_on = self.bus_online[0].pn_on.drop_duplicates(subset=["No_num", "Get_in_time_th", "Get_in_station", "Get_off_station"], keep=False)
+                self.bus_online[0].pn_on = self.bus_online[0].pn_on._append(self.bus_online[0].pn_on[self.bus_online[0].pn_on["Get_off_station"] == i])
+                self.bus_online[0].pn_on = self.bus_online[0].pn_on.drop_duplicates(subset=["No_num", "Get_in_time_th", "Boarding station", "Get_off_station"], keep=False)
 
                 if len(self.bus_online[0].To_be_process_all_station[i]) + len(self.bus_online[0].pn_on) <= self.bus_online[0].pn_on_max:
                     self.bus_online[0].pn_on = pd.concat([self.bus_online[0].pn_on, self.bus_online[0].To_be_process_all_station[i]])
-                    self.bus_online[0].Left_after_pass_the_station[i] = pd.DataFrame(columns=["No_num", "Get_in_time_th", "Get_in_station", "Get_off_station", "arrical_station_time"])
+                    self.bus_online[0].Left_after_pass_the_station[i] = pd.DataFrame(columns=["No_num", "Get_in_time_th", "Boarding station", "Get_off_station", "Arrival time"])
                     self.All_psger_wait_time = self.All_psger_wait_time +self.bus_online[0].Estimated_arrival_time[i]*len(self.bus_online[0].To_be_process_all_station[i]) - np.sum(self.bus_online[0].To_be_process_all_station[i].iloc[:,4])
                     self.All_psger_wait_time_depart_once = self.All_psger_wait_time_depart_once + self.bus_online[0].Estimated_arrival_time[i] * len(self.bus_online[0].To_be_process_all_station[i]) - np.sum(self.bus_online[0].To_be_process_all_station[i].iloc[:, 4])
                     self.All_cap_uesd = self.All_cap_uesd + len(self.bus_online[-1].pn_on)
@@ -291,14 +291,14 @@ class BUS_LINE_SYSTEM:
                 self.bus_online[-1].To_be_process_all_station[i]= pd.concat([self.bus_online[-2].Left_after_pass_the_station[i],self.station.Estimated_psger_procs(i, self.bus_online[-2].Estimated_arrival_time[i], self.bus_online[-1].Estimated_arrival_time[i])])
 
 
-                self.bus_online[-1].pn_on = self.bus_online[-1].pn_on.append(self.bus_online[-1].pn_on[self.bus_online[-1].pn_on["Get_off_station"] == i])
-                self.bus_online[-1].pn_on = self.bus_online[-1].pn_on.drop_duplicates(subset=["No_num", "Get_in_time_th", "Get_in_station", "Get_off_station"], keep=False)
+                self.bus_online[-1].pn_on = self.bus_online[-1].pn_on._append(self.bus_online[-1].pn_on[self.bus_online[-1].pn_on["Get_off_station"] == i])
+                self.bus_online[-1].pn_on = self.bus_online[-1].pn_on.drop_duplicates(subset=["No_num", "Get_in_time_th", "Boarding station", "Get_off_station"], keep=False)
 
 
                 if len(self.bus_online[-1].To_be_process_all_station[i]) + len(self.bus_online[-1].pn_on) <= self.bus_online[-1].pn_on_max:
 
                     self.bus_online[-1].pn_on = pd.concat([self.bus_online[-1].pn_on, self.bus_online[-1].To_be_process_all_station[i]])
-                    self.bus_online[-1].Left_after_pass_the_station[i] = pd.DataFrame(columns=["No_num", "Get_in_time_th", "Get_in_station", "Get_off_station", "arrical_station_time"])
+                    self.bus_online[-1].Left_after_pass_the_station[i] = pd.DataFrame(columns=["No_num", "Get_in_time_th", "Boarding station", "Get_off_station", "Arrival time"])
                     self.All_psger_wait_time = self.All_psger_wait_time + self.bus_online[-1].Estimated_arrival_time[i] * len(self.bus_online[-1].To_be_process_all_station[i]) - np.sum(self.bus_online[-1].To_be_process_all_station[i].iloc[:, 4])
                     self.All_cap_uesd = self.All_cap_uesd + len(self.bus_online[-1].pn_on)
                     self.All_psger_wait_time_depart_once = self.All_psger_wait_time_depart_once + self.bus_online[-1].Estimated_arrival_time[
@@ -312,7 +312,7 @@ class BUS_LINE_SYSTEM:
 
                 else:
                     append_mark = (self.bus_online[-1].pn_on_max - len(self.bus_online[-1].pn_on))
-                    self.bus_online[-1].pn_on.append(self.bus_online[-1].To_be_process_all_station[i].iloc[:append_mark, :])
+                    self.bus_online[-1].pn_on._append(self.bus_online[-1].To_be_process_all_station[i].iloc[:append_mark, :])
                     self.bus_online[-1].Left_after_pass_the_station[i] = self.bus_online[-1].To_be_process_all_station[i].iloc[append_mark:, :]
                     self.All_psger_wait_time = self.All_psger_wait_time + self.bus_online[-1].Estimated_arrival_time[i] * append_mark - np.sum(self.bus_online[-1].To_be_process_all_station[i].iloc[:append_mark, 4])
                     self.All_cap_uesd = self.All_cap_uesd + len(self.bus_online[-1].pn_on)
@@ -376,7 +376,7 @@ class BUS_LINE_SYSTEM:
 
         Capacity_need = 0
 
-        Passenger_num_on_board_leaving_station = pd.DataFrame(columns=["No_num", "Get_in_time_th","Get_in_station","Get_off_station","arrical_station_time"])
+        Passenger_num_on_board_leaving_station = pd.DataFrame(columns=["No_num", "Get_in_time_th","Boarding station","Get_off_station","Arrival time"])
 
         Passenger_num_on_board_leaving_station_num = []
 
@@ -407,8 +407,8 @@ class BUS_LINE_SYSTEM:
                 Passenger_tobe_proc_per_station.append(pd.concat([self.bus_online[-1].Left_after_pass_the_station[i], self.station.Estimated_psger_procs(i,self.bus_online[-1].Estimated_arrival_time[i],right_deapart_estimated_arrival_time[i])]))
 
                 # print("下车前",i,len(Passenger_num_on_board_leaving_station))
-                Passenger_num_on_board_leaving_station = Passenger_num_on_board_leaving_station.append(Passenger_num_on_board_leaving_station[Passenger_num_on_board_leaving_station["Get_off_station"] == i])
-                Passenger_num_on_board_leaving_station = Passenger_num_on_board_leaving_station.drop_duplicates(subset=["No_num", "Get_in_time_th", "Get_in_station", "Get_off_station"], keep=False)
+                Passenger_num_on_board_leaving_station = Passenger_num_on_board_leaving_station._append(Passenger_num_on_board_leaving_station[Passenger_num_on_board_leaving_station["Get_off_station"] == i])
+                Passenger_num_on_board_leaving_station = Passenger_num_on_board_leaving_station.drop_duplicates(subset=["No_num", "Get_in_time_th", "Boarding station", "Get_off_station"], keep=False)
                 # print("下车后",i,len(Passenger_num_on_board_leaving_station))
 
                 if len(Passenger_tobe_proc_per_station[i]) + len(Passenger_num_on_board_leaving_station) <= pn_on_max:
