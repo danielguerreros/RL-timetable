@@ -44,7 +44,8 @@ first_minute_th = (int(first_time[:-3]) - int(trf_con.iloc[0, 0])) * 60 + (int(f
 last_minute_th = (int(last_time[:-3]) - int(trf_con.iloc[0, 0])) * 60 + (int(last_time[-2:]) - int(trf_con.iloc[0, 1]))
 current_minute_th = first_minute_th
 
-
+passenger_columns = ['Label', 'Boarding time', 'Boarding station', 'Alighting station',
+       'Arrival time']
 
 class Station:
     def __init__(self, station_number=station_num,all_passenger_info_path=passenger_info_path, first_minute = first_minute_th):
@@ -70,7 +71,7 @@ class Station:
             self.next_minute_passengers.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"] == (self.first_minute+1)])
         
         self.current_minute_passengers =  self.init_first_minute_passengers
-
+        self.sum1=0
     def reset(self):
 
         self.init_first_minute_passengers = [] #Passengers waiting at the station when the train departs
@@ -92,10 +93,13 @@ class Station:
         self.current_minute_passengers =  self.init_first_minute_passengers
 
     def forward_one_step(self):
+
+        # We join current passengers with next ones and update current time
         for i in range(self.station_number):
             self.current_minute_passengers[i]=pd.concat([self.current_minute_passengers[i],self.next_minute_passengers[i]])
         self.current_minute = self.current_minute + 1
         
+        # We calculate again the passengers for next minute
         self.next_minute_passengers = []
         for i in range(self.station_number):  # 下一分钟，即将到达车站的乘客
             self.next_minute_passengers.append(self.all_station_all_minute_passenger[i][
@@ -103,12 +107,12 @@ class Station:
                                                               self.current_minute + 1)])
 
 
-    def Estimated_psger_procs(self,station_no,time_start,time_finish):
+    def passengers_processed(self,station_no,time_start,time_finish):
         psger_procs1=self.all_station_all_minute_passenger[station_no][self.all_station_all_minute_passenger[station_no]["Arrival time"]>time_start]
         psger_procs2 = psger_procs1[psger_procs1["Arrival time"]<=time_finish]
         return psger_procs2
 
-
+"""
 station = Station()
 print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
 station.forward_one_step()
@@ -117,27 +121,27 @@ station.forward_one_step()
 print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
 station.forward_one_step()
 print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
-
+"""
 
 
 class Bus:
     def __init__(self,max_capacity=max_capacity, station_number=station_num,start_time= current_minute_th):
 
 
-        self.start_time =start_time #发出的时间
+        self.start_time =start_time #time of issue
 
         self.station_number = station_number
 
-        self.max_capacity = max_capacity #最大人数
+        self.max_capacity = max_capacity #Maximum number of people in the bus
 
-        self.passengers_on =pd.DataFrame(columns=["No_num", "Get_in_time_th","Boarding station","Get_off_station","Arrival time"])   #车上人员
+        self.passengers_on =pd.DataFrame(columns=passenger_columns)   #passengers in the vehicle
+    
+        self.num_passengers_on = 0 #occupancy level
 
-        self.num_passengers_on = 0 #车上人数
-
-        self.position = np.zeros(station_number) #车辆位置
+        self.position = np.zeros(station_number) #Bus location
         self.position[0]=1
 
-        self.pass_position = np.zeros(station_number) #车辆通过的站点，用于计算运力
+        self.pass_position = np.zeros(station_number) #Stations through which vehicles pass for capacity calculations
         self.pass_position[0]=1
 
         self.left_every_station_pn_on = np.zeros(station_number)
@@ -146,49 +150,44 @@ class Bus:
 
         self.pass_minute = 0
 
-        self.passenger_on_board_leaving_station = pd.DataFrame(columns=["No_num", "Get_in_time_th","Boarding station","Get_off_station","Arrival time"])
+        self.passenger_on_board_leaving_station = pd.DataFrame(columns=passenger_columns)
 
-        self.arrv_mark = 0 #到达终点站
+        self.arrv_mark = 0 #terminate
 
-        self.onlie_mark =1 #目前仍未到达终点站
+        self.onlie_mark =1 #The terminal has not yet been reached.
 
-        self.bus_milage = 0 #走过某站后的距离
 
         self.cant_taken_once = 0
 
-        self.Estimated_arrival_time = np.zeros(station_number)  #预计到达某站的时间
-        self.Estimated_arrival_time[0] = current_minute_th
-        for i in range(1, station_number):
-            self.Estimated_arrival_time[i] = current_minute_th +sum(trf_con.iloc[(current_minute_th // 15), 6:6+i]) - self.pass_minute
+        self.Estimated_arrival_time = np.zeros(station_number)  #estimated time of arrival at a given station
+        self.Estimated_arrival_time[0] = start_time
 
+        # We calculate an estimated arrival time using the traffic data
+        for i in range(1, station_number):
+            self.Estimated_arrival_time[i] = start_time +sum(trf_con.iloc[(start_time // 15), 6:6+i]) - self.pass_minute
+
+        # Dataframe with people at each station when the bus is in
         self.To_be_process_all_station = []
         for i in range(0, station_number):
-            self.To_be_process_all_station.append(pd.DataFrame(columns=["No_num", "Get_in_time_th","Boarding station","Get_off_station","Arrival time"]))
+            self.To_be_process_all_station.append(pd.DataFrame(columns=passenger_columns))
 
+        # People that left the bus at certain station
         self.Left_after_pass_the_station = []
         for i in range(0, station_number):
-            self.Left_after_pass_the_station.append(pd.DataFrame(
-                columns=["No_num", "Get_in_time_th", "Boarding station", "Get_off_station", "Arrival time"]))
+            self.Left_after_pass_the_station.append(pd.DataFrame(columns=passenger_columns))
 
     def forward_one_step(self):
         self.there_label = 0
         for i in range(len(self.position) - 1):
             if self.position[i] == 1:
-                self.bus_milage = self.bus_milage + (1 / trf_con.iloc[(current_minute_th // 15), 6 + i])
+
                 self.pass_minute = self.pass_minute + 1
-
-
-                if self.bus_milage >= 1:
-                    self.pass_minute = 0
-                    self.bus_milage = self.bus_milage - 1
-                    self.position[i + 1] = 1
-                    self.pass_position[i + 1] = 1  # 过站标志位
-
-                    self.position[i] = 0
-                    self.there_label = 1
-
-                    if sum(self.pass_position)==self.station_number:
-                        self.arrv_mark=1
+                self.position[i] = 0
+                self.position[i + 1] = 1
+                self.pass_position[i + 1] = 1  # 过站标志位
+                self.there_label = 1
+                if sum(self.pass_position)==self.station_number:
+                    self.arrv_mark=1
                     break
                 break
 
@@ -197,9 +196,7 @@ class Bus:
     def up_down(self,station=Station):
 
         global All_cap_out
-
         global All_passenger_wait_time
-
         global All_cap_uesd
 
 
@@ -207,34 +204,69 @@ class Bus:
             if self.there_label ==1 and self.position[i]==1:
                 #print("222222",(station.current_minute_passengers[i]),len(self.passengers_on))
                 #print(current_minute_th,"入站",len(self.passengers_on))
-                #乘客下车
-
-                self.passengers_on = self.passengers_on.append(self.passengers_on[self.passengers_on["Get_off_station"]==i])
-                self.passengers_on = self.passengers_on.drop_duplicates(subset=["No_num", "Get_in_time_th","Boarding station","Get_off_station"], keep=False)
-
-
+                
+                # We drop passengers that will leave on the station
+                self.passengers_on = self.passengers_on._append(self.passengers_on[self.passengers_on["Alighting station"]==i])
+                self.passengers_on = self.passengers_on.drop_duplicates(subset=["Label", 'Boarding time', 'Boarding station', 'Alighting station'], keep=False)
+                
+                # If the number of current passengers in the station + the number of passengers on the bus does
+                # not exceed capacity we add them to the bus
                 if len(station.current_minute_passengers[i])+len(self.passengers_on)<=self.max_capacity:
+
+                    # Add the total number of served passengers
                     station.sum1 = station.sum1 + len(station.current_minute_passengers[i])
-                    self.passengers_on=pd.concat([self.passengers_on,station.current_minute_passengers[i]])
-                    All_cap_out = All_cap_out + self.max_capacity
-                    All_passenger_wait_time =All_passenger_wait_time + current_minute_th*len(station.current_minute_passengers[i])-np.sum(station.current_minute_passengers[i].iloc[:,4])
-                    station.current_minute_passengers[i] = pd.DataFrame(columns=["No_num", "Get_in_time_th","Boarding station","Get_off_station","Arrival time"])
-                    All_cap_uesd = All_cap_uesd + len(self.passengers_on)
+
+                    # Update the amount of passengers in the bus
+                    self.passengers_on = pd.concat([self.passengers_on,station.current_minute_passengers[i]])
+
+                    # We add the waiting times
+                    All_passenger_wait_time =All_passenger_wait_time + self.Estimated_arrival_time[i]*len(station.current_minute_passengers[i])-np.sum(station.current_minute_passengers[i].iloc[:,4])
+                    
+                    # We set the total number of passengers in the station to 0
+                    station.current_minute_passengers[i] = pd.DataFrame(columns=passenger_columns)
+
+
                 else:
-
+                    # In case the bus does not hold all the people
                     station.sum1 = station.sum1 + len(station.current_minute_passengers[i])
-                    append_mark=self.max_capacity - len(self.passengers_on)
-                    self.passengers_on = self.passengers_on.append(station.current_minute_passengers[i].iloc[:append_mark,:])
-                    All_cap_out = All_cap_out + self.max_capacity
 
+                    # We calculate the available space
+                    append_mark=self.max_capacity - len(self.passengers_on)
+
+                    # We carry only the amount of passengers to fill the bus
+                    self.passengers_on = self.passengers_on.append(station.current_minute_passengers[i].iloc[:append_mark,:])
+                    
+                    # We add the waiting times
                     All_passenger_wait_time = All_passenger_wait_time + current_minute_th * append_mark - np.sum(station.current_minute_passengers[i].iloc[:append_mark, 4])
 
+                    # We set the total number of passengers in the station to the passengers that are still waiting
                     station.current_minute_passengers[i] = station.current_minute_passengers[i].iloc[append_mark:,:]
-                    All_cap_uesd = All_cap_uesd + len(self.passengers_on)
+                
+                # We update the total capacity throughut the trip
+                All_cap_out = All_cap_out + self.max_capacity
+                # We update the served passengers
+                All_cap_uesd = All_cap_uesd + len(self.passengers_on)
+"""
+station = Station()
+print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
+station.forward_one_step()
+print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
+station.forward_one_step()
+print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
+station.forward_one_step()
+print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
+estaciones = Station()
+busesito = Bus()
+print(f"Current station of bus {np.where(busesito.position==1)[0][0]}\nPassengers in bus: {len(busesito.passengers_on)}")
+busesito.up_down(station=estaciones)
+busesito.forward_one_step()
+print(f"Current station of bus {np.where(busesito.position==1)[0][0]}\nPassengers in bus: {len(busesito.passengers_on)}")
+"""
 
-
-
-
+#print([f"{int(x//60)}:{int(x%60)}" for x in busesito.Estimated_arrival_time])
+#
+#busesito2 = Bus(start_time=current_minute_th+30)
+#print([f"{int(x//60)}:{int(x%60)}" for x in busesito2.Estimated_arrival_time])
 
 class BUS_LINE_SYSTEM:
     # Line of the bus
