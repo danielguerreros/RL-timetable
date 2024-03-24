@@ -47,66 +47,77 @@ current_minute_th = first_minute_th
 
 
 class Station:
-    def __init__(self, station_number=station_num,all_passenger_info_path=passenger_info_path):
+    def __init__(self, station_number=station_num,all_passenger_info_path=passenger_info_path, first_minute = first_minute_th):
 
         self.station_number = station_number  #Total number of stations
-
-        self.init_first_minute_passengers = [] #发车时，站点上等待的乘客
-
-        self.current_minute_passengers = [] #当前分钟，在车站上等待的乘客
-
-        self.next_minute_passengers = [] #下一分钟，即将到达车站的乘客
-
+        self.init_first_minute_passengers = [] #Passengers waiting at the station when the train departs
+        self.current_minute_passengers = [] #Passengers waiting at the station at the current minute
+        self.next_minute_passengers = [] #The next minute, a passenger about to arrive at the station
         self.all_passenger_info_path= all_passenger_info_path
-
-        self.all_passenger_info_dataframe =  pd.DataFrame(pd.read_csv(all_passenger_info_path))
-
+        self.all_passenger_info_dataframe =  pd.read_csv(all_passenger_info_path)
         self.all_station_all_minute_passenger = []  # All stations, passengers boarding every minute ([[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==1]],[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==2]],[],[],])
+        self.first_minute  = first_minute
+        self.current_minute = self.first_minute
 
-        for i in range(self.station_number): # 所有站点，每分钟上车乘客
-            self.all_station_all_minute_passenger.append(self.all_passenger_info_dataframe[self.all_passenger_info_dataframe["Boarding station"]==i])#每站，所有分钟的
-        for i in range(self.station_number): #第一分钟，所有站点的乘客
-            self.init_first_minute_passengers.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"]<=first_minute_th])
+        for i in range(self.station_number): 
+            # Array containing all passenger information per station
+            self.all_station_all_minute_passenger.append(self.all_passenger_info_dataframe[self.all_passenger_info_dataframe["Boarding station"]==i])#Every station, all minutes of
 
-
-        for i in range(self.station_number): #下一分钟，即将到达车站的乘客
-            self.next_minute_passengers.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"] == (first_minute_th+1)])
+            # Passengers in the first minute at each station
+            self.init_first_minute_passengers.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"]<=self.first_minute])
+            
+            # Passengers in the next minute
+            self.next_minute_passengers.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"] == (self.first_minute+1)])
+        
         self.current_minute_passengers =  self.init_first_minute_passengers
 
     def reset(self):
-        self.init_first_minute_passengers = []  # 发车时，站点上等待的乘客
 
-        self.current_minute_passengers = []  # 当前分钟，在车站上等待的乘客
+        self.init_first_minute_passengers = [] #Passengers waiting at the station when the train departs
+        self.current_minute_passengers = [] #Passengers waiting at the station at the current minute
+        self.next_minute_passengers = [] #The next minute, a passenger about to arrive at the station
+        self.all_passenger_info_dataframe =  pd.read_csv(self.all_passenger_info_path)
+        self.all_station_all_minute_passenger = []  # All stations, passengers boarding every minute ([[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==1]],[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==2]],[],[],])
 
-        self.next_minute_passengers = []  # 下一分钟，即将到达车站的乘客
+        for i in range(self.station_number): 
+            # All stops, passengers per minute
+            self.all_station_all_minute_passenger.append(self.all_passenger_info_dataframe[self.all_passenger_info_dataframe["Boarding station"]==i])#Every station, all minutes of
 
-        self.all_passenger_info_dataframe = pd.DataFrame(pd.read_csv(self.all_passenger_info_path))
-
-        self.all_station_all_minute_passenger = []  # 所有站点，每分钟上车乘客([[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==1]],[all_passenger_info_dataframe[all_passenger_info_dataframe["Boarding station"]==2]],[],[],])
-
-        for i in range(self.station_number):  # 所有站点，每分钟上车乘客
-            self.all_station_all_minute_passenger.append(self.all_passenger_info_dataframe[self.all_passenger_info_dataframe["Boarding station"] == i])  # 每站，所有分钟的
-        for i in range(self.station_number):  # 第一分钟，所有站点的乘客
-            self.init_first_minute_passengers.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"] <= first_minute_th])
-        for i in range(self.station_number):  # 下一分钟，即将到达车站的乘客
-            self.next_minute_passengers.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"] == (first_minute_th + 1)])
-        self.current_minute_passengers = self.init_first_minute_passengers
+            #For the first minute, passengers at all stops
+            self.init_first_minute_passengers.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"]<=self.first_minute])
+            
+            #The next minute, a passenger about to arrive at the station
+            self.next_minute_passengers.append(self.all_station_all_minute_passenger[i][self.all_station_all_minute_passenger[i]["Arrival time"] == (self.first_minute+1)])
+        
+        self.current_minute_passengers =  self.init_first_minute_passengers
 
     def forward_one_step(self):
         for i in range(self.station_number):
             self.current_minute_passengers[i]=pd.concat([self.current_minute_passengers[i],self.next_minute_passengers[i]])
+        self.current_minute = self.current_minute + 1
+        
         self.next_minute_passengers = []
-        #print(current_minute_th, "每车人数", [len(k) for k in self.current_minute_passengers])
         for i in range(self.station_number):  # 下一分钟，即将到达车站的乘客
             self.next_minute_passengers.append(self.all_station_all_minute_passenger[i][
                                                   self.all_station_all_minute_passenger[i]["Arrival time"] == (
-                                                              current_minute_th + 2)])
+                                                              self.current_minute + 1)])
 
 
     def Estimated_psger_procs(self,station_no,time_start,time_finish):
         psger_procs1=self.all_station_all_minute_passenger[station_no][self.all_station_all_minute_passenger[station_no]["Arrival time"]>time_start]
         psger_procs2 = psger_procs1[psger_procs1["Arrival time"]<=time_finish]
         return psger_procs2
+
+
+station = Station()
+print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
+station.forward_one_step()
+print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
+station.forward_one_step()
+print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
+station.forward_one_step()
+print(f" Time {(station.current_minute+1)} {[len(x) for x in station.next_minute_passengers]}")
+
 
 
 class Bus:
@@ -435,7 +446,7 @@ class BUS_LINE_SYSTEM:
 
 
 
-
+"""
 XM_2_station = Station(all_passenger_info_path=passenger_info_path)
 
 #print(XM_2_station.next_minute_passenger)
@@ -464,7 +475,6 @@ for i in range(100):
     print(current_minute_th,"Capacity and waiting time",XM_2system.All_cap_take,XM_2system.All_cap_uesd,XM_2system.All_psger_wait_time)
     current_minute_th = current_minute_th + 1
     #print(current_minute_th)
-
-
+"""
 
 
