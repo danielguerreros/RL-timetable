@@ -198,7 +198,8 @@ class BusLine:
         self.waiting_time = 0 
         self.current_carrying_capacity = 0
         self.c_max_m = 0 
-
+        self.stranded_passengers = 0 
+        
         for idx,bus in enumerate(self.buses_on_road):
             if bus.arrv_mark!=1:
                 waiting_time = bus.update(self.stations)
@@ -212,10 +213,7 @@ class BusLine:
         self.waiting_time = self.waiting_time +  np.sum([self.current_minute*len(self.stations.current_minute_passengers[i]) - np.sum(self.stations.current_minute_passengers[i])  for i in range(self.num_stations) ] )
         self.stranded_passengers = self.stranded_passengers +  np.sum([len(self.stations.current_minute_passengers[i])   for i in range(self.num_stations) ] )
         
-        with open('dict.csv', 'w') as csv_file:  
-            writer = csv.writer(csv_file)
-            for key, value in self.stranded_dict.items():
-                writer.writerow([key, value])
+        
         self.current_minute+=1
         # First we update passengers at each station,
         self.stations.forward_one_step()
