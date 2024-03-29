@@ -4,10 +4,19 @@ import torch
 import warnings
 import csv
 import matplotlib.pyplot as plt 
+import logging 
 
 warnings.filterwarnings("ignore")
 
+logging.basicConfig(filename='app.log',
+                    filemode='w',
+                    format='%(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.DEBUG)
 
+logging.info("Running Urban Planning")
+
+logger = logging.getLogger('urbanGUI')
 
 class Station:
 
@@ -161,8 +170,8 @@ class BusLine:
     MIN_INTERVAL =10
     MAX_INTERVAL =25
     EARLY_STOP = 60
-    C = 100
-    OMEGA = 0.004
+    C = 50
+    OMEGA = 0.009
     def __init__(self, passenger_data_path:str, traffic_data_path:str ,first_minute:str,last_minute:str,c_max:int,beta:int) -> None:
         
         self.passenger_data = pd.read_csv(passenger_data_path)
@@ -180,7 +189,6 @@ class BusLine:
         self.waiting_time = 0
         self.beta=beta
         self.current_carrying_capacity = 0
-        self.stranded_passengers = 0 
         self.last_bus_departure = self.current_minute
         self.current_no_waiting_passengers = 0
 
@@ -195,7 +203,7 @@ class BusLine:
     
     def update_environment(self, action):
 
-        print(f"\nCurrent time {self.current_minute//60}:{self.current_minute%60}\n")
+        logger.debug(f"\nCurrent time {self.current_minute//60}:{self.current_minute%60}\n")
         
         actual_action = action
         if (( self.last_minute - self.current_minute) <self.EARLY_STOP):
@@ -219,7 +227,6 @@ class BusLine:
         self.waiting_time = 0 
         self.current_carrying_capacity = 0
         self.c_max_m = 0 
-        self.stranded_passengers = 0 
         self.current_no_waiting_passengers = 0
 
         for idx,bus in enumerate(self.buses_on_road):
@@ -229,23 +236,26 @@ class BusLine:
                 self.current_carrying_capacity += len(bus.passengers_on)
                 if len(bus.passengers_on) >= self.c_max_m:
                     self.c_max_m=len(bus.passengers_on)
-                print(f" Bus {idx} ({bus.start_time//60}:{bus.start_time%60}) with {len(bus.passengers_on)} passengers is {bus.state_str}")
+                logger.debug(f" Bus {idx} ({bus.start_time//60}:{bus.start_time%60}) with {len(bus.passengers_on)} passengers is {bus.state_str}")
 
         self.current_no_waiting_passengers = np.sum([len(self.stations.current_minute_passengers[i]) for i  in range(self.num_stations) ])
-        self.waiting_time = self.waiting_time +  np.sum([self.current_minute*len(self.stations.current_minute_passengers[i]) - np.sum(self.stations.current_minute_passengers[i])  for i in range(self.num_stations) ] )
-        self.stranded_passengers = self.stranded_passengers +  np.sum([len(self.stations.current_minute_passengers[i])   for i in range(self.num_stations) ] )
+        self.waiting_time = self.waiting_time +  np.sum([self.current_minute*len(self.stations.current_minute_passengers[i]) - np.sum(self.stations.current_minute_passengers[i]["Arrival time"])  for i in range(self.num_stations) ] )
         
         
         self.current_minute+=1
         # First we update passengers at each station,
         self.stations.forward_one_step()
 
-        print(f"Current carrying capacity: {self.current_carrying_capacity}")
-        print(f"Current people waiting passengers: {self.stranded_passengers}")
+        logger.debug(f"Current carrying capacity: {self.current_carrying_capacity}")
+        logger.debug(f"Current e_m : {self.e_m}")
+        logger.debug(f"Waiting time {self.waiting_time}")
+        logger.debug(f"Current people waiting passengers: {self.current_no_waiting_passengers}")
         new_state = torch.cat([torch.Tensor([(self.current_minute//60)/24]),torch.Tensor([(self.current_minute%60)/60]),torch.Tensor([(self.c_max_m)/self.c_max ]),torch.Tensor([self.waiting_time]),
                 torch.Tensor([(self.current_carrying_capacity)/self.e_m])])
 
         reward = self.get_reward(actual_action)
+        logger.debug(f"Actual action: {actual_action} WTF reward 1 {reward} {self.current_carrying_capacity/self.e_m} - {self.current_no_waiting_passengers/(self.num_stations*self.C)} \n0 1 - {self.current_carrying_capacity/self.e_m} - {self.current_no_waiting_passengers/(self.num_stations*self.C)} - {(self.waiting_time/self.current_no_waiting_passengers)*self.OMEGA}")
+            
 
         return (reward,new_state)
 
@@ -265,9 +275,9 @@ rewards = []
 Line = BusLine(passenger_info_path,trf_path,first_minute_th,last_minute_th,max_capacity,1)
 current_minute = first_minute_th
 while current_minute<last_minute_th:
-    action = get_action(state)
+    #action = get_action(state)
     reward,new_state = Line.update_environment(1)
-    print(f"Reward = {reward} New state = {new_state}")
+    logger.debug(f"Reward = {reward} New state = {new_state}")
     current_minute+=1
     rewards.append(reward)
 
