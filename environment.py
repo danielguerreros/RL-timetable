@@ -5,6 +5,8 @@ import warnings
 import csv
 import matplotlib.pyplot as plt 
 import logging 
+import re 
+import matplotlib.image as mpimg
 
 warnings.filterwarnings("ignore")
 
@@ -172,17 +174,20 @@ class BusLine:
     EARLY_STOP = 60
     C = 50
     OMEGA = 0.009
-    def __init__(self, passenger_data_path:str, traffic_data_path:str ,first_minute:str,last_minute:str,c_max:int,beta:int) -> None:
+    def __init__(self, passenger_data_path:str = "data/line3/passenger_dataframe_direction1.csv", traffic_data_path:str="data/line3/traffic-1.csv" ,c_max:int=47,beta:int=1,first_minute:str="6:30",last_minute:str="22:00") -> None:
         
+
+        self.first_time=first_minute
+        self.last_time=last_minute
         self.passenger_data = pd.read_csv(passenger_data_path)
         self.traffic_data = pd.read_csv(traffic_data_path)
         self.num_stations = self.passenger_data['Boarding station'].nunique()
-        self.first_minute = first_minute
-        self.last_minute = last_minute
+        self.first_minute = (int(self.first_time[:-3]) - int(self.traffic_data.iloc[0, 0])) * 60 + (int(self.first_time[-2:]) - int(self.traffic_data.iloc[0, 1]))
+        self.last_minute = (int(self.last_time[:-3]) - int(self.traffic_data.iloc[0, 0])) * 60 + (int(self.last_time[-2:]) - int(self.traffic_data.iloc[0, 1]))
         self.current_minute = self.first_minute 
 
         self.buses_on_road = []
-        self.stations = Station(self.num_stations,passenger_data_path,first_minute)
+        self.stations = Station(self.num_stations,passenger_data_path,self.first_minute)
         self.c_max_m = 0 
         self.c_max = c_max
         self.e_m = 1*(self.num_stations-1)*self.c_max
@@ -191,21 +196,38 @@ class BusLine:
         self.current_carrying_capacity = 0
         self.last_bus_departure = self.current_minute
         self.current_no_waiting_passengers = 0
+    
+    def reset(self,passenger_data_path="data/line3/passenger_dataframe_direction1.csv"):
+        
+        self.current_minute = self.first_minute 
+        self.buses_on_road = []
+        self.stations = Station(self.num_stations,passenger_data_path,self.first_minute)
+        self.waiting_time = 0
+        self.current_carrying_capacity = 0
+        self.last_bus_departure = self.current_minute
+        self.current_no_waiting_passengers = 0
+        initial_state = self.update_environment(0)[1]
+        return initial_state
 
+    
     def get_reward(self,action):
         
         reward = 0 
         if action == 1:
             reward = self.current_carrying_capacity/self.e_m - self.current_no_waiting_passengers/(self.num_stations*self.C)
         elif action == 0: 
-            reward = 1 - self.current_carrying_capacity/self.e_m - self.current_no_waiting_passengers/(self.num_stations*self.C) - (self.waiting_time/self.current_no_waiting_passengers)*self.OMEGA
-        return reward
+            if self.current_no_waiting_passengers==0:
+                reward = 1 - self.current_carrying_capacity/self.e_m - self.current_no_waiting_passengers/(self.num_stations*self.C) 
+            else:
+                reward = 1 - self.current_carrying_capacity/self.e_m - self.current_no_waiting_passengers/(self.num_stations*self.C) - (self.waiting_time/self.current_no_waiting_passengers)*self.OMEGA
+        return -self.current_no_waiting_passengers + self.current_carrying_capacity
     
     def update_environment(self, action):
 
         logger.debug(f"\nCurrent time {self.current_minute//60}:{self.current_minute%60}\n")
         
         actual_action = action
+        """
         if (( self.last_minute - self.current_minute) <self.EARLY_STOP):
             actual_action = 0
         elif ((self.current_minute == self.first_minute) or (self.current_minute == self.last_minute) or ((self.current_minute - self.last_bus_departure)>=self.MAX_INTERVAL) ):
@@ -215,7 +237,9 @@ class BusLine:
             actual_action = 0
         elif action ==1:
             self.last_bus_departure = self.current_minute
-        
+        """
+        if actual_action==1:
+            self.last_bus_departure = self.current_minute
         
 
         
@@ -258,30 +282,104 @@ class BusLine:
             
 
         return (reward,new_state)
+    
+    def plot(self):
+        bus_image = mpimg.imread('busImage.png')
+        fig, ax = plt.subplots(figsize=(17,5))
+        passengers = [ len(x) for x in self.stations.current_minute_passengers]
+        ax.set_xlim(-1,3*len(passengers))
+        ax.set_ylim(0,10)
+        ax.spines['left'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        ax.set_yticks([])
+        ax.set_xticks([])
+
+        for x, text in enumerate(passengers):
+            ax.text(3*x,-1.25,text)
+
+        ax.text(0.5,7.5,f"Current time: {self.current_minute//60}:{self.current_minute%60}",color='red')
+
+        if len(self.buses_on_road)!= 0:
+            for bus in self.buses_on_road:
+                if bus.arrv_mark!=1:
+                    num_passengers = len(bus.passengers_on)
+                    state_str = re.findall(r'\d+', bus.state_str)
+                    if len(state_str)==1:
+                        position = int(state_str[0])
+                    else:
+                        position = (int(state_str[0]) +  int(state_str[1]))/2
+                    
+                    ax.text(3*position+0.2, 2.7, str(num_passengers))
+                    ax.imshow(bus_image,extent=[3*position, 3*position+2, 1,3])
+        return fig, ax
+    
+    def step(self, action):
+        # take action, update the environment, and return next state, reward, and done flag
+        reward, next_state = self.update_environment(action)
+        done = self.is_done()  # if the episode is done
+        return next_state, reward, done
+
+    def is_done(self):
+        if self.current_minute >= self.last_minute:
+            return True
+        else:
+            return False
+    
+
+
 
 
 first_time="6:30"
 last_time="22:00"
 max_capacity = 47
-trf_path="data/line3/traffic-1.csv"
-passenger_info_path = "data/line3/passenger_dataframe_direction1.csv"
+trf_path="data/line1/traffic-0.csv"
+passenger_info_path = "data/line1/passenger_dataframe_direction0.csv"
 trf_con = pd.DataFrame(pd.read_csv(trf_path))
 first_minute_th = (int(first_time[:-3]) - int(trf_con.iloc[0, 0])) * 60 + (int(first_time[-2:]) - int(trf_con.iloc[0, 1]))
 last_minute_th = (int(last_time[:-3]) - int(trf_con.iloc[0, 0])) * 60 + (int(last_time[-2:]) - int(trf_con.iloc[0, 1]))
 current_minute_th = first_minute_th
 passenger_columns = ['Label', 'Boarding time', 'Boarding station', 'Alighting station','Arrival time']
 
+
 rewards = []
-Line = BusLine(passenger_info_path,trf_path,first_minute_th,last_minute_th,max_capacity,1)
+Line = BusLine()
 current_minute = first_minute_th
+history = pd.DataFrame(columns=["Time","Action","Reward"])
 while current_minute<last_minute_th:
     #action = get_action(state)
-    reward,new_state = Line.update_environment(1)
+    if current_minute%10==0:
+        action = 1
+    else:
+        action = 0 
+    
+    reward,new_state = Line.update_environment(action)
     logger.debug(f"Reward = {reward} New state = {new_state}")
     current_minute+=1
-    rewards.append(reward)
+    history = history._append({"Time": current_minute,"Action":action,"Reward":reward},ignore_index=True)
+    #fig,ax = Line.plot()
+    #fig.savefig(f"plots/{current_minute}.png")
+
+
+# Filter DataFrame by Action
+#action_A = history[history["Action"] == 0]
+#action_B = history[history["Action"] == 1]
 
 
 
-plt.plot(rewards)
+# Plotting
+plt.plot(history["Time"], history["Reward"])
+#plt.plot(action_B["Time"], action_B["Reward"], label='Action 1')
+
+# Adding labels and title
+plt.xlabel('Time')
+plt.ylabel('Reward')
+plt.title('Reward over Time (Current Timetable)')
+
+# Adding legend
+plt.legend()
+plt.xticks(rotation=45) 
+plt.tight_layout() 
+plt.savefig("initialReward1.png",dpi=100)
 plt.show()
