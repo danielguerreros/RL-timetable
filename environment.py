@@ -343,43 +343,7 @@ current_minute_th = first_minute_th
 passenger_columns = ['Label', 'Boarding time', 'Boarding station', 'Alighting station','Arrival time']
 
 
-rewards = []
-Line = BusLine()
-current_minute = first_minute_th
-history = pd.DataFrame(columns=["Time","Action","Reward"])
-while current_minute<last_minute_th:
-    #action = get_action(state)
-    if current_minute%10==0:
-        action = 1
-    else:
-        action = 0 
-    
-    reward,new_state = Line.update_environment(action)
-    logger.debug(f"Reward = {reward} New state = {new_state}")
-    current_minute+=1
-    history = history._append({"Time": current_minute,"Action":action,"Reward":reward},ignore_index=True)
-    #fig,ax = Line.plot()
-    #fig.savefig(f"plots/{current_minute}.png")
-
-
-# Filter DataFrame by Action
-#action_A = history[history["Action"] == 0]
-#action_B = history[history["Action"] == 1]
 
 
 
-# Plotting
-plt.plot(history["Time"], history["Reward"])
-#plt.plot(action_B["Time"], action_B["Reward"], label='Action 1')
 
-# Adding labels and title
-plt.xlabel('Time')
-plt.ylabel('Reward')
-plt.title('Reward over Time (Current Timetable)')
-
-# Adding legend
-plt.legend()
-plt.xticks(rotation=45) 
-plt.tight_layout() 
-plt.savefig("initialReward1.png",dpi=100)
-plt.show()
