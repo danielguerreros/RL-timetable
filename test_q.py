@@ -25,8 +25,8 @@ agent = QNetwork(state_size, action_size)
 state = [1, 2, 3, 4, 5]
 agent.load_state_dict(torch.load('q_network.pth'))
 
-passenger_path = "data/line1/passenger_dataframe_direction1.csv"
-traffic_path = "data/line1/traffic-1.csv"
+passenger_path = "data/line3/passenger_dataframe_direction1.csv"
+traffic_path = "data/line3/traffic-1.csv"
 
 Line = BusLine(passenger_path,traffic_path)
 current_minute = Line.current_minute
@@ -41,7 +41,8 @@ while current_minute < Line.last_minute:
     #  environment update and reward
     reward, new_state = Line.update_environment(action)
     history = history._append({"Time": current_minute,"Action":action,"Reward":reward},ignore_index=True)
-
+    fig, ax = Line.plot()
+    fig.savefig(f'plots/{current_minute}.png')
     current_minute += 1
 
 
@@ -53,11 +54,11 @@ axs.plot(history["Time"], history["Reward"],label="Agent")
 axs.set_xlabel('Time')
 axs.set_ylabel('Reward')
 axs.legend()
-
+plt.show()
 #axs[1].tight_layout() 
 
 
-
+"""
 
 rewards = []
 Line = BusLine(passenger_path,traffic_path)
@@ -94,3 +95,4 @@ axs.set_xticks(axs.get_xticks(), axs.get_xticklabels(), rotation=45, ha='right')
 
 plt.savefig("joint_plots_test.png",dpi=100)
 plt.show()
+"""

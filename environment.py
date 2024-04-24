@@ -196,6 +196,7 @@ class BusLine:
         self.current_carrying_capacity = 0
         self.last_bus_departure = self.current_minute
         self.current_no_waiting_passengers = 0
+        self.reward = 0
     
     def reset(self,passenger_data_path="data/line3/passenger_dataframe_direction1.csv"):
         
@@ -212,15 +213,13 @@ class BusLine:
     
     def get_reward(self,action):
         
-        reward = 0 
-        if action == 1:
-            reward = self.current_carrying_capacity/self.e_m - self.current_no_waiting_passengers/(self.num_stations*self.C)
-        elif action == 0: 
-            if self.current_no_waiting_passengers==0:
-                reward = 1 - self.current_carrying_capacity/self.e_m - self.current_no_waiting_passengers/(self.num_stations*self.C) 
-            else:
-                reward = 1 - self.current_carrying_capacity/self.e_m - self.current_no_waiting_passengers/(self.num_stations*self.C) - (self.waiting_time/self.current_no_waiting_passengers)*self.OMEGA
-        return -self.current_no_waiting_passengers + self.current_carrying_capacity
+        reward = -self.current_no_waiting_passengers + self.current_carrying_capacity
+        minutes_since_last_departure = self.current_minute - self.last_bus_departure
+        if action==1 and minutes_since_last_departure<=5:
+            reward = reward - 50*(6 - minutes_since_last_departure)
+            pass
+        self.reward = reward
+        return reward
     
     def update_environment(self, action):
 
@@ -238,14 +237,10 @@ class BusLine:
         elif action ==1:
             self.last_bus_departure = self.current_minute
         """
-        if actual_action==1:
-            self.last_bus_departure = self.current_minute
-        
-
-        
-         
+             
         if actual_action == 1:
             self.buses_on_road.append(Bus(self.c_max,self.num_stations,self.current_minute))
+            
 
 
         self.waiting_time = 0 
@@ -278,6 +273,8 @@ class BusLine:
                 torch.Tensor([(self.current_carrying_capacity)/self.e_m])])
 
         reward = self.get_reward(actual_action)
+        if action==1:
+            self.last_bus_departure = self.current_minute
         logger.debug(f"Actual action: {actual_action} WTF reward 1 {reward} {self.current_carrying_capacity/self.e_m} - {self.current_no_waiting_passengers/(self.num_stations*self.C)} \n0 1 - {self.current_carrying_capacity/self.e_m} - {self.current_no_waiting_passengers/(self.num_stations*self.C)} - {(self.waiting_time/self.current_no_waiting_passengers)*self.OMEGA}")
             
 
@@ -299,7 +296,7 @@ class BusLine:
         for x, text in enumerate(passengers):
             ax.text(3*x,-1.25,text)
 
-        ax.text(0.5,7.5,f"Current time: {self.current_minute//60}:{self.current_minute%60}",color='red')
+        ax.text(0.5,7.5,f"Current time: {self.current_minute//60}:{self.current_minute%60}\nReward {self.reward}",color='red')
 
         if len(self.buses_on_road)!= 0:
             for bus in self.buses_on_road:

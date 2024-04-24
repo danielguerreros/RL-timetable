@@ -26,7 +26,7 @@ gamma = 0.99  # discount factor
 epsilon = 1.0  #  for exploration rate
 epsilon_decay = 0.995
 epsilon_min = 0.01  # minimum exploration rate
-num_episodes = 20
+num_episodes = 8
 
 env = BusLine()
 
@@ -67,6 +67,7 @@ for episode in range(num_episodes):
 
         total_reward += reward
         state = next_state
+        #print(f"reward: { reward}")
 
     # exploration rate decay
     epsilon = max(epsilon_min, epsilon * epsilon_decay)
